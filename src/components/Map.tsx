@@ -53,7 +53,7 @@ interface MapProps {
   lights: Point[];
   startPoint: Point | null;
   selectedLightIds: Set<string>;
-  routeGeoJSON: any | null;
+  routeSegments: { geometry: any, color: string }[];
   mode: InteractionMode;
   onMapClick: (lat: number, lng: number) => void;
   center: [number, number];
@@ -67,7 +67,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-export default function Map({ lights, startPoint, selectedLightIds, routeGeoJSON, mode, onMapClick, center }: MapProps) {
+export default function Map({ lights, startPoint, selectedLightIds, routeSegments, mode, onMapClick, center }: MapProps) {
   return (
     <MapContainer center={center} zoom={13} className="h-full w-full z-0" style={{ cursor: mode !== 'none' ? 'crosshair' : 'grab' }}>
       <TileLayer
@@ -102,9 +102,13 @@ export default function Map({ lights, startPoint, selectedLightIds, routeGeoJSON
         </Marker>
       ))}
 
-      {routeGeoJSON && (
-        <GeoJSON key={JSON.stringify(routeGeoJSON)} data={routeGeoJSON} style={{ color: '#3b82f6', weight: 5, opacity: 0.7 }} />
-      )}
+      {routeSegments.map((segment, index) => (
+        <GeoJSON
+          key={`segment-${index}-${JSON.stringify(segment.geometry)}`}
+          data={segment.geometry}
+          style={{ color: segment.color, weight: 6, opacity: 0.8 }}
+        />
+      ))}
     </MapContainer>
   );
 }

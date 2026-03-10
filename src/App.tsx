@@ -14,7 +14,7 @@ export default function App() {
   });
   const [selectedLightIds, setSelectedLightIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<InteractionMode>('none');
-  const [routeGeoJSON, setRouteGeoJSON] = useState<any | null>(null);
+  const [routeSegments, setRouteSegments] = useState<{ geometry: any, color: string }[]>([]);
   const [routeStats, setRouteStats] = useState<{ distance: number, duration: number } | null>(null);
   const [optimizedOrder, setOptimizedOrder] = useState<(Point & { distanceTo?: number })[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -170,7 +170,7 @@ export default function App() {
 
       // source=first means the first coordinate is the start point
       // roundtrip=false means we don't need to return to the start
-      const url = `https://router.project-osrm.org/trip/v1/driving/${coordinates}?roundtrip=false&source=first&geometries=geojson`;
+      const url = `https://router.project-osrm.org/trip/v1/driving/${coordinates}?roundtrip=false&source=first&geometries=geojson&steps=true&overview=full`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -179,26 +179,38 @@ export default function App() {
         throw new Error(data.message || "Failed to calculate route");
       }
 
-      setRouteGeoJSON(data.trips[0].geometry);
-      setRouteStats({
-        distance: data.trips[0].distance,
-        duration: data.trips[0].duration
+      const trip = data.trips[0];
+      const waypoints = data.waypoints;
+
+      // 1. 根據造訪順序排序 (waypoint_index 代表在旅程中的第幾個點)
+      const sortedWps = [...waypoints].sort((a, b) => a.waypoint_index - b.waypoint_index);
+
+      // 產生各段顏色
+      const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+      // 2. 處理路徑段落 (Legs)
+      const segments = trip.legs.map((leg: any, idx: number) => {
+        return {
+          geometry: {
+            type: "LineString",
+            coordinates: leg.steps.flatMap((s: any) => s.geometry.coordinates)
+          },
+          color: colors[idx % colors.length]
+        };
       });
 
-      // Map waypoints to our points in visited order
-      const tripWaypoints = data.waypoints;
-      const legs = data.trips[0].legs;
+      setRouteSegments(segments);
+      setRouteStats({
+        distance: trip.distance,
+        duration: trip.duration
+      });
 
-      // we skip index 0 as it is the starting point
-      const orderedWithDistances = tripWaypoints.slice(1).map((wp: any, index: number) => {
-        // location_index is the index in the original coordinates array
-        // coordinates[0] was startPoint
-        // coordinates[1...] were selectedLights
-        const selectedLights = lights.filter(l => selectedLightIds.has(l.id));
+      // 3. 建立排序後的路燈列表 (跳過索引 0 的起點)
+      const orderedWithDistances = sortedWps.slice(1).map((wp: any, idx: number) => {
         const lightIndex = wp.location_index - 1;
         return {
           ...selectedLights[lightIndex],
-          distanceTo: legs[index].distance // Distance from previous point to this one
+          distanceTo: trip.legs[idx].distance
         };
       });
 
@@ -404,7 +416,7 @@ export default function App() {
           lights={lights}
           startPoint={startPoint}
           selectedLightIds={selectedLightIds}
-          routeGeoJSON={routeGeoJSON}
+          routeSegments={routeSegments}
           mode={mode}
           onMapClick={handleMapClick}
           center={mapCenter}
