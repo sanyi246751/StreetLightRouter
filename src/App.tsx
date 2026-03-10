@@ -20,7 +20,7 @@ export default function App() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([25.0330, 121.5654]); // Default Taipei 101
 
-  const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('sheetUrl') || '');
+  const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('sheetUrl') || 'https://script.google.com/macros/s/AKfycbwkSZnKLg3WPlsOk9HVVcyGKafrz4Vzc-KBaMsV1m69_arqq-Hx_uMMfusQ5jlakpSh/exec');
   const [showSettings, setShowSettings] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -29,7 +29,7 @@ export default function App() {
   }, [sheetUrl]);
 
   const fetchFromSheet = async () => {
-    if (!sheetUrl) return alert('https://script.google.com/macros/s/AKfycbwkSZnKLg3WPlsOk9HVVcyGKafrz4Vzc-KBaMsV1m69_arqq-Hx_uMMfusQ5jlakpSh/exec');
+    if (!sheetUrl) return alert('請先設定 Google Apps Script 網址');
     setIsSyncing(true);
     try {
       const res = await fetch(sheetUrl);
@@ -50,7 +50,7 @@ export default function App() {
   };
 
   const syncToSheet = async () => {
-    if (!sheetUrl) return alert('https://script.google.com/macros/s/AKfycbwkSZnKLg3WPlsOk9HVVcyGKafrz4Vzc-KBaMsV1m69_arqq-Hx_uMMfusQ5jlakpSh/exec');
+    if (!sheetUrl) return alert('請先設定 Google Apps Script 網址');
     setIsSyncing(true);
     try {
       const res = await fetch(sheetUrl, {
