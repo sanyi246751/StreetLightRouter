@@ -16,7 +16,7 @@ export default function App() {
   const [mode, setMode] = useState<InteractionMode>('none');
   const [routeSegments, setRouteSegments] = useState<{ geometry: any, color: string }[]>([]);
   const [routeStats, setRouteStats] = useState<{ distance: number, duration: number } | null>(null);
-  const [optimizedOrder, setOptimizedOrder] = useState<(Point & { distanceTo?: number })[]>([]);
+  const [optimizedOrder, setOptimizedOrder] = useState<(Point & { distanceTo?: number, durationTo?: number, color?: string })[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([25.0330, 121.5654]); // Default Taipei 101
 
@@ -193,6 +193,7 @@ export default function App() {
           results.push({
             ...pt,
             distanceTo: dist,
+            durationTo: trip.legs[i - 1] ? trip.legs[i - 1].duration : 0,
             color: colors[(i - 1) % colors.length]
           });
         }
@@ -375,7 +376,7 @@ export default function App() {
                   <div key={light.id} className="relative">
                     <div
                       className="absolute -left-[25px] top-1 w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold ring-4 ring-white shadow-sm"
-                      style={{ backgroundColor: (light as any).color || '#10b981' }}
+                      style={{ backgroundColor: light.color || '#10b981' }}
                     >
                       {index + 1}
                     </div>
@@ -383,8 +384,15 @@ export default function App() {
                       <div className="flex justify-between items-start">
                         <div className="font-bold text-gray-800">{light.name}</div>
                         {light.distanceTo !== undefined && (
-                          <div className="shrink-0 text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">
-                            +{light.distanceTo > 1000 ? `${(light.distanceTo / 1000).toFixed(2)}km` : `${Math.round(light.distanceTo)}m`}
+                          <div className="shrink-0 flex flex-col items-end gap-1">
+                            <div className="text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">
+                              +{light.distanceTo > 1000 ? `${(light.distanceTo / 1000).toFixed(2)}km` : `${Math.round(light.distanceTo)}m`}
+                            </div>
+                            {light.durationTo !== undefined && (
+                              <div className="text-[10px] text-gray-400 font-medium">
+                                車程約 {Math.ceil(light.durationTo / 60)} 分
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
