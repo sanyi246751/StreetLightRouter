@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, GeoJSON, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { Point, InteractionMode } from '../types';
 import { useEffect, useRef } from 'react';
@@ -76,19 +76,25 @@ export default function Map({ lights, startPoint, selectedLightIds, routeGeoJSON
       />
       <MapUpdater center={center} />
       <MapEvents mode={mode} onMapClick={onMapClick} />
-      
+
       {startPoint && (
         <Marker position={[startPoint.lat, startPoint.lng]} icon={startIcon}>
+          <Tooltip permanent direction="top" offset={[0, -40]} className="font-bold text-green-700 bg-white/80 border-green-200">
+            {startPoint.name}
+          </Tooltip>
           <Popup>出發點 (Start)</Popup>
         </Marker>
       )}
 
       {lights.map(light => (
-        <Marker 
-          key={light.id} 
-          position={[light.lat, light.lng]} 
+        <Marker
+          key={light.id}
+          position={[light.lat, light.lng]}
           icon={selectedLightIds.has(light.id) ? selectedLightIcon : lightIcon}
         >
+          <Tooltip permanent direction="top" offset={[0, -40]} className={`font-bold ${selectedLightIds.has(light.id) ? 'text-red-700' : 'text-blue-700'} bg-white/80 border-none`}>
+            {light.name}
+          </Tooltip>
           <Popup>
             <div className="font-bold">{light.name}</div>
             <div className="text-xs text-gray-500">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>

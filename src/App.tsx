@@ -16,7 +16,7 @@ export default function App() {
   const [mode, setMode] = useState<InteractionMode>('none');
   const [routeGeoJSON, setRouteGeoJSON] = useState<any | null>(null);
   const [routeStats, setRouteStats] = useState<{ distance: number, duration: number } | null>(null);
-  const [optimizedOrder, setOptimizedOrder] = useState<Point[]>([]);
+  const [optimizedOrder, setOptimizedOrder] = useState<(Point & { distanceTo?: number })[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([25.0330, 121.5654]); // Default Taipei 101
 
@@ -185,15 +185,24 @@ export default function App() {
         duration: data.trips[0].duration
       });
 
-      // Map waypoints to our points
-      const orderedLights: Point[] = new Array(selectedLights.length);
+      // Map waypoints to our points in visited order
+      const tripWaypoints = data.waypoints;
+      const legs = data.trips[0].legs;
 
-      for (let i = 1; i < data.waypoints.length; i++) {
-        const wp = data.waypoints[i];
-        orderedLights[wp.waypoint_index - 1] = selectedLights[i - 1];
-      }
+      // we skip index 0 as it is the starting point
+      const orderedWithDistances = tripWaypoints.slice(1).map((wp: any, index: number) => {
+        // location_index is the index in the original coordinates array
+        // coordinates[0] was startPoint
+        // coordinates[1...] were selectedLights
+        const selectedLights = lights.filter(l => selectedLightIds.has(l.id));
+        const lightIndex = wp.location_index - 1;
+        return {
+          ...selectedLights[lightIndex],
+          distanceTo: legs[index].distance // Distance from previous point to this one
+        };
+      });
 
-      setOptimizedOrder(orderedLights);
+      setOptimizedOrder(orderedWithDistances);
 
     } catch (error) {
       console.error("Routing error:", error);
@@ -371,7 +380,14 @@ export default function App() {
                       {index + 1}
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                      <div className="font-bold text-gray-800">{light.name}</div>
+                      <div className="flex justify-between items-start">
+                        <div className="font-bold text-gray-800">{light.name}</div>
+                        {light.distanceTo !== undefined && (
+                          <div className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
+                            +{light.distanceTo < 1000 ? `${Math.round(light.distanceTo)}m` : `${(light.distanceTo / 1000).toFixed(1)}km`}
+                          </div>
+                        )}
+                      </div>
                       <div className="text-xs text-gray-500 mt-1">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                     </div>
                   </div>
