@@ -192,7 +192,8 @@ export default function App() {
         if (pt) {
           results.push({
             ...pt,
-            distanceTo: dist
+            distanceTo: dist,
+            color: colors[(i - 1) % colors.length]
           });
         }
       }
@@ -372,7 +373,10 @@ export default function App() {
               <div className="relative pl-4 border-l-2 border-emerald-200 space-y-6">
                 {optimizedOrder.map((light, index) => (
                   <div key={light.id} className="relative">
-                    <div className="absolute -left-[25px] top-1 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold ring-4 ring-white">
+                    <div
+                      className="absolute -left-[25px] top-1 w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold ring-4 ring-white shadow-sm"
+                      style={{ backgroundColor: (light as any).color || '#10b981' }}
+                    >
                       {index + 1}
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">

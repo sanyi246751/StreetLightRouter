@@ -89,6 +89,7 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
 
       {lights.map(light => {
         // Check if this light is in the optimized order
+        const orderItem = optimizedOrder.find(opt => opt.id === light.id);
         const orderIndex = optimizedOrder.findIndex(opt => opt.id === light.id);
         const isSelected = selectedLightIds.has(light.id);
 
@@ -98,13 +99,14 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
             position={[light.lat, light.lng]}
             icon={isSelected ? selectedLightIcon : lightIcon}
           >
-            {/* If in optimized order, show the number badge */}
+            {/* If in optimized order, show the number badge with matching color */}
             {orderIndex !== -1 ? (
               <Tooltip
                 permanent
                 direction="top"
                 offset={[0, -40]}
-                className="font-black text-white bg-emerald-600 border-none rounded-full w-6 h-6 flex items-center justify-center p-0 shadow-lg text-xs"
+                className="font-black text-white border-none rounded-full w-6 h-6 flex items-center justify-center p-0 shadow-lg text-xs"
+                style={{ backgroundColor: (orderItem as any)?.color || '#10b981' }}
               >
                 {orderIndex + 1}
               </Tooltip>
