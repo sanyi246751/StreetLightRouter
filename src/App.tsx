@@ -162,24 +162,38 @@ export default function App() {
       const trip = data.trips[0];
       const waypoints = data.waypoints;
 
-      // 1. 根據造訪順序排序 (waypoint_index 代表在旅程中的第幾個點)
+      // 1. Visit order: sort by waypoint_index
       const sortedWps = [...waypoints].sort((a, b) => a.waypoint_index - b.waypoint_index);
-
       const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
-      const segments = trip.legs.map((leg: any, idx: number) => ({
+
+      // 2. Legs mapping
+      const segs = trip.legs.map((leg: any, idx: number) => ({
         geometry: { type: "LineString", coordinates: leg.steps ? leg.steps.flatMap((s: any) => s.geometry.coordinates) : [] },
         color: colors[idx % colors.length]
       })).filter((s: any) => s.geometry.coordinates.length > 0);
 
-      const ordered = sortedWps.slice(1).map((wp: any, idx: number) => {
-        const target = sLights[wp.location_index - 1];
-        const dist = trip.legs && trip.legs[idx] ? trip.legs[idx].distance : 0;
-        return target ? { ...target, distanceTo: dist } : null;
-      }).filter(Boolean);
+      // 3. Final Order with distance mapping
+      const results = [];
+      // trip.legs[0] is distance from start (sortedWps[0]) to first stop (sortedWps[1])
+      for (let i = 1; i < sortedWps.length; i++) {
+        const wp = sortedWps[i];
+        const distance = trip.legs[i - 1] ? trip.legs[i - 1].distance : 0;
 
-      setRouteSegments(segments);
+        // Find the original point object based on its position in the input list
+        const inputListIndex = wp.location_index - 1;
+        const pt = sLights[inputListIndex];
+
+        if (pt) {
+          results.push({
+            ...pt,
+            distanceTo: distance
+          });
+        }
+      }
+
+      setRouteSegments(segs);
       setRouteStats({ distance: trip.distance, duration: trip.duration });
-      setOptimizedOrder(ordered as any);
+      setOptimizedOrder(results as any);
     } catch (err: any) {
       console.error("Routing Error:", err);
       alert("規劃出錯: " + err.toString());
@@ -358,8 +372,8 @@ export default function App() {
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                       <div className="flex justify-between items-start">
                         <div className="font-bold text-gray-800">{light.name}</div>
-                        {(light.distanceTo !== undefined && light.distanceTo !== null) && (
-                          <div className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-100 whitespace-nowrap">
+                        {light.distanceTo !== undefined && (
+                          <div className="shrink-0 text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">
                             +{light.distanceTo > 1000 ? `${(light.distanceTo / 1000).toFixed(2)}km` : `${Math.round(light.distanceTo)}m`}
                           </div>
                         )}
