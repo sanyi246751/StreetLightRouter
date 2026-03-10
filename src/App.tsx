@@ -15,7 +15,7 @@ export default function App() {
   const [selectedLightIds, setSelectedLightIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<InteractionMode>('none');
   const [routeGeoJSON, setRouteGeoJSON] = useState<any | null>(null);
-  const [routeStats, setRouteStats] = useState<{distance: number, duration: number} | null>(null);
+  const [routeStats, setRouteStats] = useState<{ distance: number, duration: number } | null>(null);
   const [optimizedOrder, setOptimizedOrder] = useState<Point[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([25.0330, 121.5654]); // Default Taipei 101
@@ -29,7 +29,7 @@ export default function App() {
   }, [sheetUrl]);
 
   const fetchFromSheet = async () => {
-    if (!sheetUrl) return alert('請先設定 Google Apps Script 網址');
+    if (!sheetUrl) return alert('https://script.google.com/macros/s/AKfycbwkSZnKLg3WPlsOk9HVVcyGKafrz4Vzc-KBaMsV1m69_arqq-Hx_uMMfusQ5jlakpSh/exec');
     setIsSyncing(true);
     try {
       const res = await fetch(sheetUrl);
@@ -50,7 +50,7 @@ export default function App() {
   };
 
   const syncToSheet = async () => {
-    if (!sheetUrl) return alert('請先設定 Google Apps Script 網址');
+    if (!sheetUrl) return alert('https://script.google.com/macros/s/AKfycbwkSZnKLg3WPlsOk9HVVcyGKafrz4Vzc-KBaMsV1m69_arqq-Hx_uMMfusQ5jlakpSh/exec');
     setIsSyncing(true);
     try {
       const res = await fetch(sheetUrl, {
@@ -160,7 +160,7 @@ export default function App() {
     setIsCalculating(true);
     try {
       const selectedLights = lights.filter(l => selectedLightIds.has(l.id));
-      
+
       // OSRM Trip API format: {lng},{lat};{lng},{lat}...
       // First point is start point
       const coordinates = [
@@ -171,7 +171,7 @@ export default function App() {
       // source=first means the first coordinate is the start point
       // roundtrip=false means we don't need to return to the start
       const url = `https://router.project-osrm.org/trip/v1/driving/${coordinates}?roundtrip=false&source=first&geometries=geojson`;
-      
+
       const response = await fetch(url);
       const data = await response.json();
 
@@ -187,7 +187,7 @@ export default function App() {
 
       // Map waypoints to our points
       const orderedLights: Point[] = new Array(selectedLights.length);
-      
+
       for (let i = 1; i < data.waypoints.length; i++) {
         const wp = data.waypoints[i];
         orderedLights[wp.waypoint_index - 1] = selectedLights[i - 1];
@@ -215,8 +215,8 @@ export default function App() {
             </h1>
             <p className="text-blue-100 text-sm mt-1">標示未編號路燈並規劃最短路徑</p>
           </div>
-          <button 
-            onClick={() => setShowSettings(true)} 
+          <button
+            onClick={() => setShowSettings(true)}
             className="p-2 hover:bg-blue-500 rounded-full transition-colors"
             title="Google Sheet 雲端同步設定"
           >
@@ -237,7 +237,7 @@ export default function App() {
                   <div className="font-medium text-green-700">已設定出發點</div>
                   <div className="text-xs text-gray-500">{startPoint.lat.toFixed(5)}, {startPoint.lng.toFixed(5)}</div>
                 </div>
-                <button 
+                <button
                   onClick={() => setStartPoint(null)}
                   className="text-gray-400 hover:text-red-500"
                 >
@@ -248,8 +248,8 @@ export default function App() {
               <button
                 onClick={() => setMode(mode === 'set_start' ? 'none' : 'set_start')}
                 className={`w-full py-2 px-4 rounded-lg border-2 border-dashed transition-colors flex items-center justify-center gap-2
-                  ${mode === 'set_start' 
-                    ? 'border-green-500 bg-green-50 text-green-700' 
+                  ${mode === 'set_start'
+                    ? 'border-green-500 bg-green-50 text-green-700'
                     : 'border-gray-300 hover:border-green-400 hover:bg-green-50 text-gray-600'}`}
               >
                 <LocateFixed className="w-4 h-4" />
@@ -268,8 +268,8 @@ export default function App() {
               <button
                 onClick={() => setMode(mode === 'add_light' ? 'none' : 'add_light')}
                 className={`p-2 rounded-lg transition-colors flex items-center gap-1 text-sm
-                  ${mode === 'add_light' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  ${mode === 'add_light'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
               >
                 <Plus className="w-4 h-4" />
@@ -311,7 +311,7 @@ export default function App() {
                         <div className="font-medium text-sm text-gray-800 truncate">{light.name}</div>
                         <div className="text-xs text-gray-500 truncate">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => deleteLight(light.id)}
                         className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity p-1"
                       >
@@ -359,7 +359,7 @@ export default function App() {
                 </h2>
                 {routeStats && (
                   <div className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 font-medium">
-                    總距離: {(routeStats.distance / 1000).toFixed(1)} km • 
+                    總距離: {(routeStats.distance / 1000).toFixed(1)} km •
                     預估時間: {Math.ceil(routeStats.duration / 60)} 分鐘
                   </div>
                 )}
@@ -384,7 +384,7 @@ export default function App() {
 
       {/* Map Area */}
       <div className="flex-1 relative">
-        <Map 
+        <Map
           lights={lights}
           startPoint={startPoint}
           selectedLightIds={selectedLightIds}
@@ -393,7 +393,7 @@ export default function App() {
           onMapClick={handleMapClick}
           center={mapCenter}
         />
-        
+
         {/* Mode Indicator Overlay */}
         {mode !== 'none' && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-lg border border-blue-200 text-blue-800 font-medium flex items-center gap-2 animate-bounce pointer-events-none">
@@ -430,8 +430,8 @@ export default function App() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Google Apps Script 網頁應用程式網址 (Web App URL)
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={sheetUrl}
                   onChange={(e) => setSheetUrl(e.target.value)}
                   placeholder="https://script.google.com/macros/s/..."
@@ -443,7 +443,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-                <button 
+                <button
                   onClick={fetchFromSheet}
                   disabled={isSyncing || !sheetUrl}
                   className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -452,8 +452,8 @@ export default function App() {
                   <span className="font-medium">從雲端下載</span>
                   <span className="text-xs opacity-75 text-center">覆蓋目前的點位</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={syncToSheet}
                   disabled={isSyncing || !sheetUrl}
                   className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
