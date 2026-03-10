@@ -1,0 +1,5 @@
+{
+  "name": "Street Light Router",
+  "description": "Plan the shortest route to visit unnumbered street lights.",
+  "requestFramePermissions": ["geolocation"]
+}
