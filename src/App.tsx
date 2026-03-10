@@ -148,36 +148,16 @@ export default function App() {
   };
 
   const calculateRoute = async () => {
-    if (!startPoint) {
-      alert("請先設定出發點 (Please set a starting point)");
-      return;
-    }
-    if (selectedLightIds.size === 0) {
-      alert("請選擇至少一個路燈 (Please select at least one street light)");
-      return;
-    }
-
+    if (!startPoint) { alert("請先設定出發點"); return; }
+    if (selectedLightIds.size === 0) { alert("請選擇至少一個路燈"); return; }
     setIsCalculating(true);
     try {
-      const selectedLights = lights.filter(l => selectedLightIds.has(l.id));
-
-      // OSRM Trip API format: {lng},{lat};{lng},{lat}...
-      // First point is start point
-      const coordinates = [
-        `${startPoint.lng},${startPoint.lat}`,
-        ...selectedLights.map(l => `${l.lng},${l.lat}`)
-      ].join(';');
-
-      // source=first means the first coordinate is the start point
-      // roundtrip=false means we don't need to return to the start
-      const url = `https://router.project-osrm.org/trip/v1/driving/${coordinates}?roundtrip=false&source=first&geometries=geojson&steps=true&overview=full`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.code !== 'Ok') {
-        throw new Error(data.message || "Failed to calculate route");
-      }
+      const sLights = lights.filter(l => selectedLightIds.has(l.id));
+      const coords = [`${startPoint.lng},${startPoint.lat}`, ...sLights.map(l => `${l.lng},${l.lat}`)].join(';');
+      const url = `https://router.project-osrm.org/trip/v1/driving/${coords}?roundtrip=false&source=first&geometries=geojson&steps=true&overview=full`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code !== 'Ok') throw new Error(data.message || data.code);
 
       const trip = data.trips[0];
       const waypoints = data.waypoints;
@@ -185,46 +165,23 @@ export default function App() {
       // 1. 根據造訪順序排序 (waypoint_index 代表在旅程中的第幾個點)
       const sortedWps = [...waypoints].sort((a, b) => a.waypoint_index - b.waypoint_index);
 
-      // 產生各段顏色
       const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
+      const segments = trip.legs.map((leg: any, idx: number) => ({
+        geometry: { type: "LineString", coordinates: leg.steps ? leg.steps.flatMap((s: any) => s.geometry.coordinates) : [] },
+        color: colors[idx % colors.length]
+      })).filter((s: any) => s.geometry.coordinates.length > 0);
 
-      // 2. 處理路徑段落 (Legs)
-      // 確保即使某一段出錯，也不會導致整頁白屏
-      const segments = trip.legs.map((leg: any, idx: number) => {
-        const coords = leg.steps ? leg.steps.flatMap((s: any) => s.geometry.coordinates) : [];
-        return {
-          geometry: {
-            type: "LineString",
-            coordinates: coords.length > 0 ? coords : []
-          },
-          color: colors[idx % colors.length]
-        };
-      }).filter((s: any) => s.geometry.coordinates.length > 0);
-
-      // 3. 建立排序後的路燈列表 (跳過索引 0 的起點)
-      const orderedWithDistances = sortedWps.slice(1).map((wp: any, idx: number) => {
-        const lightIndex = wp.location_index - 1;
-        const targetLight = selectedLights[lightIndex];
-
-        // 安全檢查
-        if (!targetLight) return null;
-
-        return {
-          ...targetLight,
-          distanceTo: trip.legs[idx] ? trip.legs[idx].distance : 0
-        };
-      }).filter(Boolean) as (Point & { distanceTo?: number })[];
+      const ordered = sortedWps.slice(1).map((wp: any, idx: number) => {
+        const target = sLights[wp.location_index - 1];
+        return target ? { ...target, distanceTo: (trip.legs[idx] ? trip.legs[idx].distance : 0) } : null;
+      }).filter(Boolean);
 
       setRouteSegments(segments);
-      setRouteStats({
-        distance: trip.distance,
-        duration: trip.duration
-      });
-      setOptimizedOrder(orderedWithDistances);
-
-    } catch (error) {
-      console.error("Routing error:", error);
-      alert("無法計算路徑，請稍後再試或確認座標是否在道路附近。");
+      setRouteStats({ distance: trip.distance, duration: trip.duration });
+      setOptimizedOrder(ordered as any);
+    } catch (err: any) {
+      console.error("Routing Error:", err);
+      alert("規劃出錯: " + err.toString());
     } finally {
       setIsCalculating(false);
     }

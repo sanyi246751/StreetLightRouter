@@ -104,7 +104,7 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
 
       {routeSegments.map((segment, index) => (
         <GeoJSON
-          key={`segment-${index}-${JSON.stringify(segment.geometry)}`}
+          key={`route-seg-${index}-${segment.color}`}
           data={segment.geometry}
           style={{ color: segment.color, weight: 6, opacity: 0.8 }}
         />
