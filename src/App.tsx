@@ -189,31 +189,37 @@ export default function App() {
       const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
 
       // 2. 處理路徑段落 (Legs)
+      // 確保即使某一段出錯，也不會導致整頁白屏
       const segments = trip.legs.map((leg: any, idx: number) => {
+        const coords = leg.steps ? leg.steps.flatMap((s: any) => s.geometry.coordinates) : [];
         return {
           geometry: {
             type: "LineString",
-            coordinates: leg.steps.flatMap((s: any) => s.geometry.coordinates)
+            coordinates: coords.length > 0 ? coords : []
           },
           color: colors[idx % colors.length]
         };
-      });
+      }).filter((s: any) => s.geometry.coordinates.length > 0);
+
+      // 3. 建立排序後的路燈列表 (跳過索引 0 的起點)
+      const orderedWithDistances = sortedWps.slice(1).map((wp: any, idx: number) => {
+        const lightIndex = wp.location_index - 1;
+        const targetLight = selectedLights[lightIndex];
+
+        // 安全檢查
+        if (!targetLight) return null;
+
+        return {
+          ...targetLight,
+          distanceTo: trip.legs[idx] ? trip.legs[idx].distance : 0
+        };
+      }).filter(Boolean) as (Point & { distanceTo?: number })[];
 
       setRouteSegments(segments);
       setRouteStats({
         distance: trip.distance,
         duration: trip.duration
       });
-
-      // 3. 建立排序後的路燈列表 (跳過索引 0 的起點)
-      const orderedWithDistances = sortedWps.slice(1).map((wp: any, idx: number) => {
-        const lightIndex = wp.location_index - 1;
-        return {
-          ...selectedLights[lightIndex],
-          distanceTo: trip.legs[idx].distance
-        };
-      });
-
       setOptimizedOrder(orderedWithDistances);
 
     } catch (error) {
