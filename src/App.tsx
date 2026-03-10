@@ -173,7 +173,8 @@ export default function App() {
 
       const ordered = sortedWps.slice(1).map((wp: any, idx: number) => {
         const target = sLights[wp.location_index - 1];
-        return target ? { ...target, distanceTo: (trip.legs[idx] ? trip.legs[idx].distance : 0) } : null;
+        const dist = trip.legs && trip.legs[idx] ? trip.legs[idx].distance : 0;
+        return target ? { ...target, distanceTo: dist } : null;
       }).filter(Boolean);
 
       setRouteSegments(segments);
@@ -357,9 +358,9 @@ export default function App() {
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                       <div className="flex justify-between items-start">
                         <div className="font-bold text-gray-800">{light.name}</div>
-                        {light.distanceTo !== undefined && (
-                          <div className="text-[10px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
-                            +{light.distanceTo < 1000 ? `${Math.round(light.distanceTo)}m` : `${(light.distanceTo / 1000).toFixed(1)}km`}
+                        {(light.distanceTo !== undefined && light.distanceTo !== null) && (
+                          <div className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-100 whitespace-nowrap">
+                            +{light.distanceTo > 1000 ? `${(light.distanceTo / 1000).toFixed(2)}km` : `${Math.round(light.distanceTo)}m`}
                           </div>
                         )}
                       </div>
