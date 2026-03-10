@@ -105,6 +105,29 @@ export default function App() {
     }
   }, []);
 
+  const handleGPSLocation = () => {
+    if (!navigator.geolocation) {
+      alert("您的瀏覽器不支援 GPS 定位");
+      return;
+    }
+
+    setIsSyncing(true); // Reuse syncing state as simple loader
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setStartPoint({ id: 'start-gps', lat: latitude, lng: longitude, name: '目前位置 (GPS)' });
+        setMapCenter([latitude, longitude]);
+        setIsSyncing(false);
+        setMode('none');
+      },
+      (error) => {
+        setIsSyncing(false);
+        alert(`定位失敗: ${error.message}`);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
   const handleMapClick = (lat: number, lng: number) => {
     if (mode === 'add_light') {
       const newLight: Point = {
@@ -117,7 +140,7 @@ export default function App() {
       setSelectedLightIds(new Set(selectedLightIds).add(newLight.id));
       setMode('none');
     } else if (mode === 'set_start') {
-      setStartPoint({ id: 'start', lat, lng, name: '出發點' });
+      setStartPoint({ id: 'start', lat, lng, name: '出發點 (模擬)' });
       setMode('none');
     }
   };
@@ -241,27 +264,63 @@ export default function App() {
             {startPoint ? (
               <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-green-200 shadow-sm">
                 <div>
-                  <div className="font-medium text-green-700">已設定出發點</div>
+                  <div className="font-medium text-green-700 flex items-center gap-1">
+                    {startPoint.id.includes('gps') ? <Navigation className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
+                    {startPoint.name}
+                  </div>
                   <div className="text-xs text-gray-500">{startPoint.lat.toFixed(5)}, {startPoint.lng.toFixed(5)}</div>
                 </div>
-                <button
-                  onClick={() => setStartPoint(null)}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setStartPoint(null);
+                      setMode('set_start');
+                    }}
+                    className="text-blue-500 hover:text-blue-700 text-xs font-medium"
+                  >
+                    修改
+                  </button>
+                  <button
+                    onClick={() => setStartPoint(null)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ) : (
-              <button
-                onClick={() => setMode(mode === 'set_start' ? 'none' : 'set_start')}
-                className={`w-full py-2 px-4 rounded-lg border-2 border-dashed transition-colors flex items-center justify-center gap-2
-                  ${mode === 'set_start'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-300 hover:border-green-400 hover:bg-green-50 text-gray-600'}`}
-              >
-                <LocateFixed className="w-4 h-4" />
-                {mode === 'set_start' ? '請在地圖上點擊位置...' : '在地圖上點擊設定出發點'}
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setMode(mode === 'set_start' ? 'none' : 'set_start')}
+                  className={`py-3 px-3 rounded-lg border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1
+                    ${mode === 'set_start'
+                      ? 'border-green-500 bg-green-50 text-green-700 scale-95'
+                      : 'border-gray-200 hover:border-green-400 hover:bg-green-50 text-gray-600'}`}
+                >
+                  <LocateFixed className="w-5 h-5 text-blue-500" />
+                  <span className="text-xs font-bold">手動模擬</span>
+                  <span className="text-[9px] opacity-70">點擊地圖設定</span>
+                </button>
+
+                <button
+                  onClick={handleGPSLocation}
+                  disabled={isSyncing}
+                  className="py-3 px-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 text-gray-600 transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                >
+                  {isSyncing ? (
+                    <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
+                  ) : (
+                    <Navigation className="w-5 h-5 text-emerald-600" />
+                  )}
+                  <span className="text-xs font-bold">手機 GPS</span>
+                  <span className="text-[9px] opacity-70">獲取目前位置</span>
+                </button>
+              </div>
+            )}
+            {mode === 'set_start' && (
+              <div className="mt-2 text-center text-xs text-green-600 font-medium animate-pulse">
+                已進入設定模式，請點擊地圖或路燈圖示...
+              </div>
             )}
           </section>
 
