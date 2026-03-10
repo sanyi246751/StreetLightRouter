@@ -1,42 +1,40 @@
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, GeoJSON, Tooltip } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, GeoJSON, Tooltip, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import { Point, InteractionMode } from '../types';
-import { useEffect, useRef } from 'react';
+import 'leaflet/dist/leaflet.css';
 
-// Fix Leaflet's default icon path issues
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// Create consistent Circle Icons
+const createNumberedIcon = (number: number | string, color: string, isMain: boolean = false) => {
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div style="
+        background-color: ${color};
+        width: ${isMain ? '32px' : '28px'};
+        height: ${isMain ? '32px' : '28px'};
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: ${isMain ? '14px' : '12px'};
+        transform: translate(-10%, -10%);
+      ">
+        ${number}
+      </div>
+    `,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  });
+};
 
-const startIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const lightIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-const selectedLightIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
+const startIcon = createNumberedIcon('起', '#059669', true); // Emerald-600 for Start
+const dotIcon = createNumberedIcon('', '#3b82f6'); // Default Blue
+const selectedDotIcon = createNumberedIcon('', '#ef4444'); // Selected Red
 
 function MapEvents({ mode, onMapClick }: { mode: InteractionMode, onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -54,9 +52,10 @@ interface MapProps {
   startPoint: Point | null;
   selectedLightIds: Set<string>;
   routeSegments: { geometry: any, color: string }[];
-  optimizedOrder: (Point & { distanceTo?: number })[];
+  optimizedOrder: (Point & { distanceTo?: number, color?: string })[];
   mode: InteractionMode;
   onMapClick: (lat: number, lng: number) => void;
+  onMarkerClick?: (light: Point) => void;
   center: [number, number];
 }
 
@@ -68,54 +67,69 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-export default function Map({ lights, startPoint, selectedLightIds, routeSegments, optimizedOrder, mode, onMapClick, center }: MapProps) {
+export default function Map({ lights, startPoint, selectedLightIds, routeSegments, optimizedOrder, mode, onMapClick, onMarkerClick, center }: MapProps) {
   return (
     <MapContainer center={center} zoom={13} className="h-full w-full z-0" style={{ cursor: mode !== 'none' ? 'crosshair' : 'grab' }}>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <LayersControl position="topright">
+        <LayersControl.BaseLayer checked name="OpenStreetMap">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        </LayersControl.BaseLayer>
+
+        <LayersControl.BaseLayer name="內政部 TGOS (臺灣通用電子地圖)">
+          <TileLayer
+            attribution='&copy; <a href="https://maps.nlsc.gov.tw/">NLSC</a>, MOI'
+            url="https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}"
+          />
+        </LayersControl.BaseLayer>
+      </LayersControl>
       <MapUpdater center={center} />
       <MapEvents mode={mode} onMapClick={onMapClick} />
 
       {startPoint && (
         <Marker position={[startPoint.lat, startPoint.lng]} icon={startIcon}>
-          <Tooltip permanent direction="top" offset={[0, -40]} className="font-bold text-green-700 bg-white/80 border-green-200">
-            {startPoint.name}
+          <Tooltip permanent direction="top" offset={[0, -15]} className="font-bold text-green-700 bg-white/90 border-green-200 px-2 rounded">
+            {startPoint.name} (起點)
           </Tooltip>
           <Popup>出發點 (Start)</Popup>
         </Marker>
       )}
 
       {lights.map(light => {
-        // Check if this light is in the optimized order
         const orderItem = optimizedOrder.find(opt => opt.id === light.id);
         const orderIndex = optimizedOrder.findIndex(opt => opt.id === light.id);
         const isSelected = selectedLightIds.has(light.id);
+
+        // Decide Icon
+        let currentIcon = isSelected ? selectedDotIcon : dotIcon;
+        if (orderIndex !== -1) {
+          currentIcon = createNumberedIcon(orderIndex + 1, orderItem?.color || '#10b981');
+        }
 
         return (
           <Marker
             key={light.id}
             position={[light.lat, light.lng]}
-            icon={isSelected ? selectedLightIcon : lightIcon}
+            icon={currentIcon}
+            eventHandlers={{
+              click: (e) => {
+                // If setting start point, use this marker instead of map click
+                if (mode === 'set_start' && onMarkerClick) {
+                  onMarkerClick(light);
+                  // Prevent the map click event from firing
+                  L.DomEvent.stopPropagation(e);
+                }
+              }
+            }}
           >
-            {/* If in optimized order, show the number badge with matching color */}
-            {orderIndex !== -1 ? (
+            {orderIndex === -1 && (
               <Tooltip
                 permanent
                 direction="top"
-                offset={[0, -40]}
-                className="font-black text-white border-none rounded-full w-6 h-6 flex items-center justify-center p-0 shadow-lg text-xs"
-                style={{ backgroundColor: (orderItem as any)?.color || '#10b981' }}
-              >
-                {orderIndex + 1}
-              </Tooltip>
-            ) : (
-              <Tooltip
-                permanent
-                direction="top"
-                offset={[0, -40]}
-                className={`font-bold ${isSelected ? 'text-red-700' : 'text-blue-700'} bg-white/80 border-none shadow-sm`}
+                offset={[0, -15]}
+                className={`font-bold ${isSelected ? 'text-red-700' : 'text-blue-700'} bg-white/80 border-none shadow-sm px-1.5 rounded text-[10px]`}
               >
                 {light.name}
               </Tooltip>

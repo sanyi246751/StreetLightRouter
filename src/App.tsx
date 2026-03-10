@@ -416,6 +416,12 @@ export default function App() {
           optimizedOrder={optimizedOrder}
           mode={mode}
           onMapClick={handleMapClick}
+          onMarkerClick={(light) => {
+            if (mode === 'set_start') {
+              setStartPoint(light);
+              setMode('none');
+            }
+          }}
           center={mapCenter}
         />
 
