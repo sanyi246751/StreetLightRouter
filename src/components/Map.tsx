@@ -54,6 +54,7 @@ interface MapProps {
   startPoint: Point | null;
   selectedLightIds: Set<string>;
   routeSegments: { geometry: any, color: string }[];
+  optimizedOrder: (Point & { distanceTo?: number })[];
   mode: InteractionMode;
   onMapClick: (lat: number, lng: number) => void;
   center: [number, number];
@@ -67,7 +68,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-export default function Map({ lights, startPoint, selectedLightIds, routeSegments, mode, onMapClick, center }: MapProps) {
+export default function Map({ lights, startPoint, selectedLightIds, routeSegments, optimizedOrder, mode, onMapClick, center }: MapProps) {
   return (
     <MapContainer center={center} zoom={13} className="h-full w-full z-0" style={{ cursor: mode !== 'none' ? 'crosshair' : 'grab' }}>
       <TileLayer
@@ -86,21 +87,47 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
         </Marker>
       )}
 
-      {lights.map(light => (
-        <Marker
-          key={light.id}
-          position={[light.lat, light.lng]}
-          icon={selectedLightIds.has(light.id) ? selectedLightIcon : lightIcon}
-        >
-          <Tooltip permanent direction="top" offset={[0, -40]} className={`font-bold ${selectedLightIds.has(light.id) ? 'text-red-700' : 'text-blue-700'} bg-white/80 border-none`}>
-            {light.name}
-          </Tooltip>
-          <Popup>
-            <div className="font-bold">{light.name}</div>
-            <div className="text-xs text-gray-500">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
-          </Popup>
-        </Marker>
-      ))}
+      {lights.map(light => {
+        // Check if this light is in the optimized order
+        const orderIndex = optimizedOrder.findIndex(opt => opt.id === light.id);
+        const isSelected = selectedLightIds.has(light.id);
+
+        return (
+          <Marker
+            key={light.id}
+            position={[light.lat, light.lng]}
+            icon={isSelected ? selectedLightIcon : lightIcon}
+          >
+            {/* If in optimized order, show the number badge */}
+            {orderIndex !== -1 ? (
+              <Tooltip
+                permanent
+                direction="top"
+                offset={[0, -40]}
+                className="font-black text-white bg-emerald-600 border-none rounded-full w-6 h-6 flex items-center justify-center p-0 shadow-lg text-xs"
+              >
+                {orderIndex + 1}
+              </Tooltip>
+            ) : (
+              <Tooltip
+                permanent
+                direction="top"
+                offset={[0, -40]}
+                className={`font-bold ${isSelected ? 'text-red-700' : 'text-blue-700'} bg-white/80 border-none shadow-sm`}
+              >
+                {light.name}
+              </Tooltip>
+            )}
+            <Popup>
+              <div className="font-bold">{light.name}</div>
+              <div className="text-xs text-gray-500">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
+              {orderIndex !== -1 && (
+                <div className="text-xs font-bold text-emerald-600 mt-1">第 {orderIndex + 1} 站</div>
+              )}
+            </Popup>
+          </Marker>
+        );
+      })}
 
       {routeSegments.map((segment, index) => (
         <GeoJSON

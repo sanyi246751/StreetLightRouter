@@ -160,33 +160,39 @@ export default function App() {
       if (data.code !== 'Ok') throw new Error(data.message || data.code);
 
       const trip = data.trips[0];
-      const waypoints = data.waypoints;
 
-      // 1. Visit order: sort by waypoint_index
-      const sortedWps = [...waypoints].sort((a, b) => a.waypoint_index - b.waypoint_index);
+      // 1. Waypoints mapping (OSRM waypoint[i] corresponds to input coordinate[i])
+      // Attach the original index to each waypoint so we can map it back after sorting
+      const waypointsWithOriginalIndex = data.waypoints.map((wp: any, idx: number) => ({
+        ...wp,
+        originalInputIndex: idx
+      }));
+
+      // 2. Sort waypoints by the order they are visited in the trip
+      const sortedWps = [...waypointsWithOriginalIndex].sort((a, b) => a.waypoint_index - b.waypoint_index);
       const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
 
-      // 2. Legs mapping
+      // 3. Legs mapping for colored path segments
       const segs = trip.legs.map((leg: any, idx: number) => ({
         geometry: { type: "LineString", coordinates: leg.steps ? leg.steps.flatMap((s: any) => s.geometry.coordinates) : [] },
         color: colors[idx % colors.length]
       })).filter((s: any) => s.geometry.coordinates.length > 0);
 
-      // 3. Final Order with distance mapping
+      // 4. Final Optimized Order with Distances
       const results = [];
-      // trip.legs[0] is distance from start (sortedWps[0]) to first stop (sortedWps[1])
+      // trip.legs[i] is the journey from sortedWps[i] to sortedWps[i+1]
       for (let i = 1; i < sortedWps.length; i++) {
         const wp = sortedWps[i];
-        const distance = trip.legs[i - 1] ? trip.legs[i - 1].distance : 0;
+        const dist = trip.legs[i - 1] ? trip.legs[i - 1].distance : 0;
 
-        // Find the original point object based on its position in the input list
-        const inputListIndex = wp.location_index - 1;
-        const pt = sLights[inputListIndex];
+        // originalInputIndex 0 is startPoint, 1+ are sLights
+        const sLightIndex = wp.originalInputIndex - 1;
+        const pt = sLights[sLightIndex];
 
         if (pt) {
           results.push({
             ...pt,
-            distanceTo: distance
+            distanceTo: dist
           });
         }
       }
@@ -395,6 +401,7 @@ export default function App() {
           startPoint={startPoint}
           selectedLightIds={selectedLightIds}
           routeSegments={routeSegments}
+          optimizedOrder={optimizedOrder}
           mode={mode}
           onMapClick={handleMapClick}
           center={mapCenter}
