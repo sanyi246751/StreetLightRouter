@@ -14,6 +14,7 @@ export default function App() {
   });
   const [selectedLightIds, setSelectedLightIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<InteractionMode>('none');
+  const [heading, setHeading] = useState(0);
   const [routeSegments, setRouteSegments] = useState<{ geometry: any, color: string }[]>([]);
   const [routeStats, setRouteStats] = useState<{ distance: number, duration: number } | null>(null);
   const [optimizedOrder, setOptimizedOrder] = useState<(Point & { distanceTo?: number, durationTo?: number, color?: string })[]>([]);
@@ -104,6 +105,148 @@ export default function App() {
       setMapCenter([lights[0].lat, lights[0].lng]);
     }
   }, []);
+
+  // Distance helper (Haversine)
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // metres
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // in metres
+  };
+
+  // Distance from point to polyline
+  const checkDeviation = (lat: number, lng: number) => {
+    if (routeSegments.length === 0) return false;
+
+    // Simple check: is the user within 50m of ANY point in the planned route?
+    let minDistance = Infinity;
+    for (const seg of routeSegments) {
+      for (const coord of seg.geometry.coordinates) {
+        const d = getDistance(lat, lng, coord[1], coord[0]);
+        if (d < minDistance) minDistance = d;
+      }
+    }
+    return minDistance > 60; // 60 meters threshold
+  };
+
+  // Handle Navigation and Geolocation Watching
+  const requestOrientationPermission = async () => {
+    if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      try {
+        const response = await (DeviceOrientationEvent as any).requestPermission();
+        return response === 'granted';
+      } catch (e) {
+        console.error(e);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    let watchId: number | null = null;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      // use webkitCompassHeading for iOS, alpha for Android (though alpha is not North-aligned easily)
+      const alpha = (e as any).webkitCompassHeading || e.alpha;
+      if (alpha !== null) {
+        setHeading(alpha);
+        setStartPoint(prev => prev ? { ...prev, heading: alpha } : null);
+      }
+    };
+
+    if (mode === 'navigating') {
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude, heading: gpsHeading } = position.coords;
+
+            setStartPoint(prev => ({
+              ...prev || { id: 'start-gps', name: '目前位置 (GPS)', lat: 0, lng: 0 },
+              lat: latitude,
+              lng: longitude,
+              heading: gpsHeading || heading
+            }));
+
+            setMapCenter([latitude, longitude]);
+
+            // Auto-reroute if deviated
+            if (!isCalculating && checkDeviation(latitude, longitude)) {
+              console.log("Deviated from route! Recalculating...");
+              calculateRouteFromPoint(latitude, longitude);
+            }
+          },
+          (err) => console.error("WatchPosition error:", err),
+          { enableHighAccuracy: true }
+        );
+      }
+
+      if ('DeviceOrientationEvent' in window) {
+        window.addEventListener('deviceorientationabsolute', handleOrientation as any);
+        window.addEventListener('deviceorientation', handleOrientation as any);
+      }
+    }
+
+    return () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      window.removeEventListener('deviceorientationabsolute', handleOrientation as any);
+      window.removeEventListener('deviceorientation', handleOrientation as any);
+    };
+  }, [mode, routeSegments, isCalculating]);
+
+  const calculateRouteFromPoint = async (lat: number, lng: number) => {
+    if (selectedLightIds.size === 0) return;
+    setIsCalculating(true);
+    try {
+      // Find which lights are not visited? Actually OSRM trip handles all.
+      // But we might want to exclude lights we just passed? For now keep it simple.
+      const sLights = lights.filter(l => selectedLightIds.has(l.id));
+      const coords = [`${lng},${lat}`, ...sLights.map(l => `${l.lng},${l.lat}`)].join(';');
+      const url = `https://router.project-osrm.org/trip/v1/driving/${coords}?roundtrip=false&source=first&geometries=geojson&steps=true&overview=full`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code !== 'Ok') throw new Error(data.message || data.code);
+
+      const trip = data.trips[0];
+      const waypointsWithOriginalIndex = data.waypoints.map((wp: any, idx: number) => ({ ...wp, originalInputIndex: idx }));
+      const sortedWps = [...waypointsWithOriginalIndex].sort((a, b) => a.waypoint_index - b.waypoint_index);
+      const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+      const segs = trip.legs.map((leg: any, idx: number) => ({
+        geometry: { type: "LineString", coordinates: leg.steps ? leg.steps.flatMap((s: any) => s.geometry.coordinates) : [] },
+        color: colors[idx % colors.length]
+      })).filter((s: any) => s.geometry.coordinates.length > 0);
+
+      const results = [];
+      for (let i = 1; i < sortedWps.length; i++) {
+        const wp = sortedWps[i];
+        const sLightIndex = wp.originalInputIndex - 1;
+        const pt = sLights[sLightIndex];
+        if (pt) {
+          results.push({
+            ...pt,
+            distanceTo: trip.legs[i - 1] ? trip.legs[i - 1].distance : 0,
+            durationTo: trip.legs[i - 1] ? trip.legs[i - 1].duration : 0,
+            color: colors[(i - 1) % colors.length]
+          });
+        }
+      }
+
+      setRouteSegments(segs);
+      setRouteStats({ distance: trip.distance, duration: trip.duration });
+      setOptimizedOrder(results as any);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
 
   const handleGPSLocation = () => {
     if (!navigator.geolocation) {
@@ -413,6 +556,35 @@ export default function App() {
                 </>
               )}
             </button>
+
+            {optimizedOrder.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (mode !== 'navigating') {
+                    await requestOrientationPermission();
+                    setMode('navigating');
+                  } else {
+                    setMode('none');
+                  }
+                }}
+                className={`w-full mt-2 py-3 border-2 font-bold rounded-lg transition-all flex items-center justify-center gap-2
+                  ${mode === 'navigating'
+                    ? 'border-red-500 bg-red-50 text-red-600'
+                    : 'border-blue-600 bg-white text-blue-600 hover:bg-blue-50'}`}
+              >
+                {mode === 'navigating' ? (
+                  <>
+                    <X className="w-5 h-5" />
+                    停止導航
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-5 h-5 animate-pulse" />
+                    進入導航模式 (GPS)
+                  </>
+                )}
+              </button>
+            )}
           </section>
 
           {/* Optimized Order Result */}
@@ -486,16 +658,22 @@ export default function App() {
 
         {/* Mode Indicator Overlay */}
         {mode !== 'none' && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-lg border border-blue-200 text-blue-800 font-medium flex items-center gap-2 animate-bounce pointer-events-none">
+          <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-lg border font-medium flex items-center gap-2 animate-bounce pointer-events-none
+            ${mode === 'navigating' ? 'border-red-200 text-red-800' : 'border-blue-200 text-blue-800'}`}>
             {mode === 'add_light' ? (
               <>
                 <MapPin className="w-5 h-5" />
                 點擊地圖新增路燈
               </>
-            ) : (
+            ) : mode === 'set_start' ? (
               <>
                 <LocateFixed className="w-5 h-5 text-green-600" />
                 <span className="text-green-700">點擊地圖設定出發點</span>
+              </>
+            ) : (
+              <>
+                <Navigation className="w-5 h-5 text-blue-600 animate-pulse" />
+                導航模式中：手機定位與方向追蹤
               </>
             )}
           </div>

@@ -36,6 +36,33 @@ const startIcon = createNumberedIcon('起', '#059669', true); // Emerald-600 for
 const dotIcon = createNumberedIcon('', '#3b82f6'); // Default Blue
 const selectedDotIcon = createNumberedIcon('', '#ef4444'); // Selected Red
 
+const navigationIcon = (heading: number = 0) => {
+  return L.divIcon({
+    className: 'nav-icon',
+    html: `
+      <div style="
+        width: 36px;
+        height: 36px;
+        background: #3b82f6;
+        border: 3px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        transform: rotate(${heading}deg);
+        position: relative;
+      ">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+          <path d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z" />
+        </svg>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+};
+
 function MapEvents({ mode, onMapClick }: { mode: InteractionMode, onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
@@ -89,13 +116,30 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
       <MapEvents mode={mode} onMapClick={onMapClick} />
 
       {startPoint && (
-        <Marker position={[startPoint.lat, startPoint.lng]} icon={startIcon}>
+        <Marker
+          position={[startPoint.lat, startPoint.lng]}
+          icon={mode === 'navigating' ? navigationIcon(startPoint.heading || 0) : startIcon}
+        >
           <Tooltip permanent direction="top" offset={[0, -15]} className="font-bold text-green-700 bg-white/90 border-green-200 px-2 rounded">
-            {startPoint.name} (起點)
+            {mode === 'navigating' ? '目前位置' : `${startPoint.name} (起點)`}
           </Tooltip>
-          <Popup>出發點 (Start)</Popup>
+          <Popup>{mode === 'navigating' ? '導航中...' : '出發點 (Start)'}</Popup>
         </Marker>
       )}
+
+      {/* Compass UI Overlay */}
+      <div className="absolute bottom-6 right-6 z-[1000] pointer-events-none">
+        <div
+          className="w-12 h-12 bg-white rounded-full shadow-lg border-2 border-gray-200 flex items-center justify-center transition-transform duration-300"
+          style={{ transform: `rotate(${-(startPoint?.heading || 0)}deg)` }}
+        >
+          <div className="relative w-full h-full">
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[10px] font-black text-red-600">N</div>
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-gray-400">S</div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 bg-gradient-to-b from-red-500 via-gray-300 to-gray-300"></div>
+          </div>
+        </div>
+      </div>
 
       {lights.map(light => {
         const orderItem = optimizedOrder.find(opt => opt.id === light.id);
