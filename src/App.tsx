@@ -22,12 +22,14 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([25.0330, 121.5654]); // Default Taipei 101
 
   const [sheetUrl, setSheetUrl] = useState(() => localStorage.getItem('sheetUrl') || 'https://script.google.com/macros/s/AKfycbwkSZnKLg3WPlsOk9HVVcyGKafrz4Vzc-KBaMsV1m69_arqq-Hx_uMMfusQ5jlakpSh/exec');
+  const [syncPassword, setSyncPassword] = useState(() => localStorage.getItem('syncPassword') || '');
   const [showSettings, setShowSettings] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('sheetUrl', sheetUrl);
-  }, [sheetUrl]);
+    localStorage.setItem('syncPassword', syncPassword);
+  }, [sheetUrl, syncPassword]);
 
   const fetchFromSheet = async () => {
     if (!sheetUrl) return alert('請先設定 Google Apps Script 網址');
@@ -52,6 +54,18 @@ export default function App() {
 
   const syncToSheet = async () => {
     if (!sheetUrl) return alert('請先設定 Google Apps Script 網址');
+
+    const confirmSync = window.confirm(`將上傳 ${lights.length} 筆路燈資料，這會覆蓋雲端現有的點位，確定要繼續嗎？`);
+    if (!confirmSync) return;
+
+    if (syncPassword) {
+      const inputPass = window.prompt('請輸入上傳密碼：');
+      if (inputPass !== syncPassword) {
+        alert('密碼錯誤，上傳取消。');
+        return;
+      }
+    }
+
     setIsSyncing(true);
     try {
       const res = await fetch(sheetUrl, {
@@ -153,11 +167,18 @@ export default function App() {
     let watchId: number | null = null;
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      // use webkitCompassHeading for iOS, alpha for Android (though alpha is not North-aligned easily)
       const alpha = (e as any).webkitCompassHeading || e.alpha;
       if (alpha !== null) {
-        setHeading(alpha);
-        setStartPoint(prev => prev ? { ...prev, heading: alpha } : null);
+        // Simple smoothing (Alpha filter: 0.1 means 10% new value, 90% old)
+        setHeading(prev => {
+          const diff = alpha - prev;
+          // Handle wrap-around (0<->360)
+          const normalizedDiff = ((diff + 180) % 360) - 180;
+          const smoothed = prev + normalizedDiff * 0.2;
+
+          setStartPoint(sp => sp ? { ...sp, heading: smoothed } : null);
+          return smoothed;
+        });
       }
     };
 
@@ -165,25 +186,40 @@ export default function App() {
       if (navigator.geolocation) {
         watchId = navigator.geolocation.watchPosition(
           (position) => {
-            const { latitude, longitude, heading: gpsHeading } = position.coords;
+            const { latitude, longitude, heading: gpsHeading, accuracy } = position.coords;
 
-            setStartPoint(prev => ({
-              ...prev || { id: 'start-gps', name: '目前位置 (GPS)', lat: 0, lng: 0 },
-              lat: latitude,
-              lng: longitude,
-              heading: gpsHeading || heading
-            }));
+            // Only update if accuracy is decent or significant move
+            setStartPoint(prev => {
+              if (prev && prev.lat && prev.lng) {
+                const dist = getDistance(latitude, longitude, prev.lat, prev.lng);
+                // Threshold: Only update if moved more than 2 meters (reducing jitter)
+                if (dist < 2) return prev;
+              }
 
-            setMapCenter([latitude, longitude]);
+              const newPoint = {
+                ...prev || { id: 'start-gps', name: '目前位置 (GPS)', lat: 0, lng: 0 },
+                lat: latitude,
+                lng: longitude,
+                heading: gpsHeading || heading
+              };
 
-            // Auto-reroute if deviated
+              // Map centering logic: only center if the move is significant (> 5m)
+              // This prevents the screen from 'shaking' with every minor GPS jitter
+              setMapCenter(prevCenter => {
+                const dCenter = getDistance(latitude, longitude, prevCenter[0], prevCenter[1]);
+                return dCenter > 5 ? [latitude, longitude] : prevCenter;
+              });
+
+              return newPoint;
+            });
+
+            // Auto-reroute if deviated (Keep same threshold, but based on smoothed point)
             if (!isCalculating && checkDeviation(latitude, longitude)) {
-              console.log("Deviated from route! Recalculating...");
               calculateRouteFromPoint(latitude, longitude);
             }
           },
           (err) => console.error("WatchPosition error:", err),
-          { enableHighAccuracy: true }
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
         );
       }
 
@@ -707,6 +743,22 @@ export default function App() {
                 />
                 <p className="text-xs text-gray-500 mt-2">
                   請將 Apps Script 程式碼貼入您的 Google Sheet，並發布為網頁應用程式後，將網址貼在此處。
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  上傳授權密碼 (選填)
+                </label>
+                <input
+                  type="password"
+                  value={syncPassword}
+                  onChange={(e) => setSyncPassword(e.target.value)}
+                  placeholder="設置密碼以防止他人誤傳"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  若在此設定密碼，之後點擊「上傳至雲端」時必須輸入正確密碼才能執行。
                 </p>
               </div>
 

@@ -51,6 +51,7 @@ const navigationIcon = (heading: number = 0) => {
         justify-content: center;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         transform: rotate(${heading}deg);
+        transition: transform 0.3s ease-out;
         position: relative;
       ">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
