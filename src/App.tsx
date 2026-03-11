@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Point, InteractionMode } from './types';
 import Map from './components/Map';
-import { MapPin, Navigation, Plus, Trash2, CheckSquare, Square, LocateFixed, Route, Settings, Cloud, Download, Upload, X, Loader2 } from 'lucide-react';
+import { MapPin, Navigation, Plus, Trash2, CheckSquare, Square, LocateFixed, Route, Settings, Cloud, Download, Upload, X, Loader2, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function App() {
   const [lights, setLights] = useState<Point[]>(() => {
@@ -25,6 +25,15 @@ export default function App() {
   const [syncPassword, setSyncPassword] = useState(() => localStorage.getItem('syncPassword') || '');
   const [showSettings, setShowSettings] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(window.innerWidth > 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) setShowSidebar(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sheetUrl', sheetUrl);
@@ -413,24 +422,43 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 overflow-hidden font-sans">
-      {/* Sidebar */}
-      <div className="w-96 bg-white shadow-xl flex flex-col z-10 relative">
-        <div className="p-6 bg-blue-600 text-white flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <MapPin className="w-6 h-6" />
-              路燈編號導航
-            </h1>
-            <p className="text-blue-100 text-sm mt-1">標示未編號路燈並規劃最短路徑</p>
+    <div className="flex h-screen w-full bg-gray-50 overflow-hidden font-sans relative">
+      {/* Mobile Backdrop Overlay */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[1000] md:hidden"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+
+      {/* Sidebar - Responsive */}
+      <div className={`
+        fixed md:relative top-0 left-0 h-full bg-white shadow-2xl flex flex-col z-[1001] md:z-10
+        transition-all duration-300 ease-in-out transform
+        ${showSidebar ? 'translate-x-0 w-80 lg:w-96' : '-translate-x-full w-0 md:w-0'}
+      `}>
+        <div className="p-4 lg:p-6 bg-blue-600 text-white flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <MapPin className="w-6 h-6 shrink-0" />
+            <div className="truncate">
+              <h1 className="text-xl lg:text-2xl font-bold truncate">路燈導航</h1>
+            </div>
           </div>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 hover:bg-blue-500 rounded-full transition-colors"
-            title="Google Sheet 雲端同步設定"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 hover:bg-blue-500 rounded-full transition-colors"
+              title="設定"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowSidebar(false)}
+              className="md:hidden p-2 hover:bg-blue-500 rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -674,7 +702,17 @@ export default function App() {
       </div>
 
       {/* Map Area */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative h-full">
+        {/* Mobile Toggle Button */}
+        {!showSidebar && (
+          <button
+            onClick={() => setShowSidebar(true)}
+            className="absolute top-4 left-4 z-[1000] bg-white p-3 rounded-xl shadow-lg border border-gray-200 text-blue-600 hover:bg-blue-50 transition-all active:scale-95 flex items-center gap-2 font-bold"
+          >
+            <Menu className="w-6 h-6" />
+            <span className="md:hidden">控制面板</span>
+          </button>
+        )}
         <Map
           lights={lights}
           startPoint={startPoint}
