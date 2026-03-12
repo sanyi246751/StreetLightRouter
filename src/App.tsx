@@ -580,8 +580,8 @@ export default function App() {
                           <Square className="w-5 h-5" />
                         )}
                       </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm text-gray-800 truncate">{light.name}</div>
+                      <div className="flex-1 min-w-0 py-1">
+                        <div className="font-medium text-sm text-gray-800 break-words">{light.name}</div>
                         <div className="text-xs text-gray-500 truncate">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                       </div>
                       <button
@@ -676,8 +676,8 @@ export default function App() {
                       {index + 1}
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div className="font-bold text-gray-800">{light.name}</div>
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="font-bold text-gray-800 flex-1 break-words">{light.name}</div>
                         {light.distanceTo !== undefined && (
                           <div className="shrink-0 flex flex-col items-end gap-1">
                             <div className="text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">

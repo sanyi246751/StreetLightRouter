@@ -180,7 +180,7 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
               </Tooltip>
             )}
             <Popup>
-              <div className="font-bold">{light.name}</div>
+              <div className="font-bold break-words">{light.name}</div>
               <div className="text-xs text-gray-500">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
               {orderIndex !== -1 && (
                 <div className="text-xs font-bold text-emerald-600 mt-1">第 {orderIndex + 1} 站</div>
