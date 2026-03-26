@@ -380,6 +380,33 @@ export default function App() {
     }
   };
 
+  const resetAllClicks = async () => {
+    if (!sheetUrl) return;
+    if (!window.confirm('確定要將所有路燈的導航次數歸零嗎？這也會同步更新至雲端。')) return;
+    
+    setIsSyncing(true);
+    try {
+      const res = await fetch(sheetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'reset_clicks' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLights(prev => prev.map(l => ({ ...l, clicks: 0 })));
+        setOptimizedOrder(prev => prev.map(l => ({ ...l, clicks: 0 })));
+        alert('導航次數已成功歸零！');
+      } else {
+        throw new Error(data.error || 'Reset failed');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('歸零失敗，請稍後再試。');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const groups = Array.from(new Set(lights.map(l => l.group).filter(Boolean))) as string[];
   const filteredLights = filterGroup === 'all' 
     ? lights 
@@ -899,6 +926,14 @@ export default function App() {
                 <p className="text-xs text-gray-500 mt-2">
                   若在此設定密碼，之後點擊「上傳至雲端」時必須輸入正確密碼才能執行。
                 </p>
+                <button
+                  onClick={resetAllClicks}
+                  disabled={isSyncing}
+                  className="w-full py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  將所有點位導航次數歸零
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
