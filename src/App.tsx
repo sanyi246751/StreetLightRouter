@@ -362,6 +362,7 @@ export default function App() {
     
     // Optimistic UI update
     setLights(prev => prev.map(l => ids.includes(l.id) ? { ...l, clicks: (l.clicks || 0) + 1 } : l));
+    setOptimizedOrder(prev => prev.map(l => ids.includes(l.id) ? { ...l, clicks: (l.clicks || 0) + 1 } : l));
 
     try {
       // For multiple IDs, we can call consecutively or update GAS to handle array.
