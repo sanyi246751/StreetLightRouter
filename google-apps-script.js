@@ -54,20 +54,13 @@ function doPost(e) {
             .setMimeType(ContentService.MimeType.JSON);
     }
 
-    if (params.action === 'log_click') {
-        const id = params.id;
-        if (!id) return ContentService.createTextOutput(JSON.stringify({ success: false, error: "ID required" }));
-
+    if (params.action === 'reset_clicks') {
         const data = sheet.getDataRange().getValues();
         for (let i = 1; i < data.length; i++) {
-            if (String(data[i][0]) === String(id)) {
-                const current = Number(data[i][5] || 0);
-                sheet.getRange(i + 1, 6).setValue(current + 1);
-                return ContentService.createTextOutput(JSON.stringify({ success: true, count: current + 1 }))
-                    .setMimeType(ContentService.MimeType.JSON);
-            }
+            sheet.getRange(i + 1, 6).setValue(0);
         }
-        return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Light not found" }));
+        return ContentService.createTextOutput(JSON.stringify({ success: true }))
+            .setMimeType(ContentService.MimeType.JSON);
     }
 
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Unknown action" }))
