@@ -675,11 +675,6 @@ export default function App() {
                               {light.group}
                             </span>
                           )}
-                          {light.clicks && light.clicks > 0 && (
-                            <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold border border-blue-100">
-                              🏠 {light.clicks}
-                            </span>
-                          )}
                         </div>
                         <div className="text-xs text-gray-500 truncate">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                       </div>
@@ -764,12 +759,14 @@ export default function App() {
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:border-blue-300 transition-colors">
                       <div className="flex justify-between items-start gap-3">
-                        <div className="font-bold text-gray-800 flex-1 break-words">
-                        {light.name}
-                        {light.clicks && light.clicks > 0 && (
-                          <span className="ml-2 text-[10px] text-blue-600">({light.clicks}次導航)</span>
-                        )}
-                      </div>
+                        <div className="font-bold text-gray-800 flex-1 break-words flex flex-wrap items-center gap-2">
+                          {light.name}
+                          {light.clicks && light.clicks > 0 && (
+                            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100 font-bold">
+                              導航 {light.clicks} 次
+                            </span>
+                          )}
+                        </div>
                         {light.distanceTo !== undefined && (
                           <div className="shrink-0 flex flex-col items-end gap-1">
                             <div className="flex items-center gap-2">
