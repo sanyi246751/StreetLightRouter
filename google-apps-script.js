@@ -7,7 +7,7 @@ function doGet() {
 
     // 如果表單是空的，回傳空陣列
     if (data.length <= 1) {
-        return ContentService.createTextOutput(JSON.stringify([]))
+        return ContentService.createTextOutput(JSON.stringify({ lights: [], clickCount: getClickCount() }))
             .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -21,8 +21,19 @@ function doGet() {
         group: String(row[4] || '')
     }));
 
-    return ContentService.createTextOutput(JSON.stringify(lights))
+    return ContentService.createTextOutput(JSON.stringify({ lights, clickCount: getClickCount() }))
         .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getClickCount() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let statsSheet = ss.getSheetByName('Stats');
+    if (!statsSheet) {
+        statsSheet = ss.insertSheet('Stats');
+        statsSheet.getRange('A1').setValue('Navigation Clicks');
+        statsSheet.getRange('B1').setValue(0);
+    }
+    return statsSheet.getRange('B1').getValue();
 }
 
 function doPost(e) {
@@ -34,7 +45,8 @@ function doPost(e) {
             .setMimeType(ContentService.MimeType.JSON);
     }
 
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getActiveSheet();
 
     if (params.action === 'sync') {
         sheet.clear();
@@ -49,6 +61,19 @@ function doPost(e) {
         }
 
         return ContentService.createTextOutput(JSON.stringify({ success: true }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (params.action === 'log_click') {
+        let statsSheet = ss.getSheetByName('Stats');
+        if (!statsSheet) {
+            statsSheet = ss.insertSheet('Stats');
+            statsSheet.getRange('A1').setValue('Navigation Clicks');
+            statsSheet.getRange('B1').setValue(0);
+        }
+        const current = statsSheet.getRange('B1').getValue();
+        statsSheet.getRange('B1').setValue(current + 1);
+        return ContentService.createTextOutput(JSON.stringify({ success: true, count: current + 1 }))
             .setMimeType(ContentService.MimeType.JSON);
     }
 

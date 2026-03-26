@@ -4,16 +4,11 @@ import Map from './components/Map';
 import { MapPin, Navigation, Plus, Trash2, CheckSquare, Square, LocateFixed, Route, Settings, Cloud, Download, Upload, X, Loader2, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function App() {
-  const [lights, setLights] = useState<Point[]>(() => {
-    const saved = localStorage.getItem('streetLights');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [lights, setLights] = useState<Point[]>([]);
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [groupInput, setGroupInput] = useState('');
-  const [startPoint, setStartPoint] = useState<Point | null>(() => {
-    const saved = localStorage.getItem('startPoint');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [startPoint, setStartPoint] = useState<Point | null>(null);
+  const [clickCount, setClickCount] = useState<number>(0);
   const [selectedLightIds, setSelectedLightIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<InteractionMode>('none');
   const [heading, setHeading] = useState(0);
@@ -48,7 +43,13 @@ export default function App() {
     try {
       const res = await fetch(sheetUrl);
       const data = await res.json();
-      if (Array.isArray(data)) {
+      if (data && Array.isArray(data.lights)) {
+        setLights(data.lights);
+        setClickCount(data.clickCount || 0);
+        setSelectedLightIds(new Set());
+        alert(`成功從 Google Sheet 載入 ${data.lights.length} 筆資料！`);
+      } else if (Array.isArray(data)) {
+        // Fallback for older GAS versions
         setLights(data);
         setSelectedLightIds(new Set());
         alert(`成功從 Google Sheet 載入 ${data.length} 筆資料！`);
@@ -100,18 +101,7 @@ export default function App() {
     }
   };
 
-  // Save to local storage
-  useEffect(() => {
-    localStorage.setItem('streetLights', JSON.stringify(lights));
-  }, [lights]);
-
-  useEffect(() => {
-    if (startPoint) {
-      localStorage.setItem('startPoint', JSON.stringify(startPoint));
-    } else {
-      localStorage.removeItem('startPoint');
-    }
-  }, [startPoint]);
+  /* localStorage removed for lights and startPoint */
 
   // Get current location on mount if no start point
   useEffect(() => {
@@ -368,6 +358,20 @@ export default function App() {
     setGroupInput('');
   };
 
+  const logNavigationClick = async () => {
+    if (!sheetUrl) return;
+    try {
+      await fetch(sheetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'log_click' })
+      });
+      setClickCount(prev => prev + 1);
+    } catch (e) {
+      console.error("Failed to log click:", e);
+    }
+  };
+
   const groups = Array.from(new Set(lights.map(l => l.group).filter(Boolean))) as string[];
   const filteredLights = filterGroup === 'all' 
     ? lights 
@@ -589,28 +593,34 @@ export default function App() {
               </div>
 
               {selectedLightIds.size > 0 && (
-                <div className="flex gap-1 animate-in slide-in-from-top-1">
-                  <input
-                    type="text"
-                    value={groupInput}
-                    onChange={(e) => setGroupInput(e.target.value)}
-                    placeholder="輸入群組名稱..."
-                    className="flex-1 text-xs px-2 py-1.5 border rounded"
-                  />
-                  <button
-                    onClick={() => assignGroup(groupInput)}
-                    className="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-blue-700 whitespace-nowrap"
-                  >
-                    分配群組
-                  </button>
-                  {groupInput === '' && (
+                <div className="space-y-2 animate-in slide-in-from-top-1">
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      list="existing-groups"
+                      value={groupInput}
+                      onChange={(e) => setGroupInput(e.target.value)}
+                      placeholder="輸入或選擇群組..."
+                      className="flex-1 text-xs px-2 py-1.5 border rounded"
+                    />
+                    <datalist id="existing-groups">
+                      {groups.map(g => <option key={g} value={g} />)}
+                    </datalist>
                     <button
-                      onClick={() => assignGroup('')}
-                      className="bg-gray-400 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-gray-500 whitespace-nowrap"
+                      onClick={() => assignGroup(groupInput)}
+                      className="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-blue-700 whitespace-nowrap"
                     >
-                      清除群組
+                      分配群組
                     </button>
-                  )}
+                    {groupInput === '' && (
+                      <button
+                        onClick={() => assignGroup('')}
+                        className="bg-gray-400 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-gray-500 whitespace-nowrap"
+                      >
+                        清除群組
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -701,6 +711,7 @@ export default function App() {
             {optimizedOrder.length > 0 && (
               <button
                 onClick={() => {
+                  logNavigationClick();
                   const waypoints = optimizedOrder.slice(0, -1).map(l => `${l.lat},${l.lng}`).join('|');
                   const destination = optimizedOrder[optimizedOrder.length - 1];
                   const url = `https://www.google.com/maps/dir/?api=1&origin=${startPoint?.lat},${startPoint?.lng}&destination=${destination.lat},${destination.lng}${waypoints ? `&waypoints=${waypoints}` : ''}`;
@@ -723,9 +734,16 @@ export default function App() {
                   建議造訪順序
                 </h2>
                 {routeStats && (
-                  <div className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 font-medium">
-                    總距離: {(routeStats.distance / 1000).toFixed(1)} km •
-                    預估時間: {Math.ceil(routeStats.duration / 60)} 分鐘
+                  <div className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 font-medium space-x-2">
+                    <span>總距離: {(routeStats.distance / 1000).toFixed(1)} km</span>
+                    <span>•</span>
+                    <span>預估時間: {Math.ceil(routeStats.duration / 60)} 分鐘</span>
+                    {clickCount > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-blue-600">導航點擊: {clickCount} 次</span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -754,7 +772,10 @@ export default function App() {
                               </div>
                             </div>
                             <button
-                              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${light.lat},${light.lng}`, '_blank')}
+                              onClick={() => {
+                                logNavigationClick();
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${light.lat},${light.lng}`, '_blank');
+                              }}
                               className="mt-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded flex items-center gap-1 shadow-sm transition-colors"
                             >
                               <Navigation className="w-3 h-3" />
