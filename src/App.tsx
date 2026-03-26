@@ -481,7 +481,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex bg-gray-50 overflow-hidden font-sans relative safe-area-inset" style={{ height: '100svh' }}>
+    <div className="flex bg-gray-50 overflow-hidden font-sans relative" style={{ height: '100svh' }}>
       {/* Mobile Backdrop Overlay */}
       {showSidebar && (
         <div
@@ -492,9 +492,11 @@ export default function App() {
 
       {/* Sidebar - Responsive */}
       <div className={`
-        fixed lg:relative top-0 left-0 h-full bg-white shadow-2xl flex flex-col z-[1001] lg:z-10
+        fixed lg:relative top-0 left-0 h-full bg-white flex flex-col z-[1001] lg:z-10
         transition-all duration-300 ease-in-out transform
-        ${showSidebar ? 'translate-x-0 w-[85vw] md:w-80 lg:w-96' : '-translate-x-full w-0 lg:w-0'}
+        ${showSidebar 
+          ? 'translate-x-0 w-[80vw] sm:w-80 lg:shadow-none shadow-2xl' 
+          : '-translate-x-full w-[80vw] sm:w-80'}
       `}>
         <div className="p-4 lg:p-6 bg-blue-600 text-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2 overflow-hidden">
