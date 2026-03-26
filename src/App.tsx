@@ -467,6 +467,11 @@ export default function App() {
       setRouteSegments(segs);
       setRouteStats({ distance: trip.distance, duration: trip.duration });
       setOptimizedOrder(results as any);
+      
+      // Auto-hide sidebar on mobile to show the route
+      if (window.innerWidth < 1024) {
+        setShowSidebar(false);
+      }
     } catch (err: any) {
       console.error("Routing Error:", err);
       alert("規劃出錯: " + err.toString());
@@ -476,20 +481,20 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 overflow-hidden font-sans relative">
+    <div className="flex bg-gray-50 overflow-hidden font-sans relative safe-area-inset" style={{ height: '100svh' }}>
       {/* Mobile Backdrop Overlay */}
       {showSidebar && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[1000] md:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[1000] lg:hidden animate-in fade-in"
           onClick={() => setShowSidebar(false)}
         />
       )}
 
       {/* Sidebar - Responsive */}
       <div className={`
-        fixed md:relative top-0 left-0 h-full bg-white shadow-2xl flex flex-col z-[1001] md:z-10
+        fixed lg:relative top-0 left-0 h-full bg-white shadow-2xl flex flex-col z-[1001] lg:z-10
         transition-all duration-300 ease-in-out transform
-        ${showSidebar ? 'translate-x-0 w-80 lg:w-96' : '-translate-x-full w-0 md:w-0'}
+        ${showSidebar ? 'translate-x-0 w-[85vw] md:w-80 lg:w-96' : '-translate-x-full w-0 lg:w-0'}
       `}>
         <div className="p-4 lg:p-6 bg-blue-600 text-white flex justify-between items-center shrink-0">
           <div className="flex items-center gap-2 overflow-hidden">
@@ -501,14 +506,14 @@ export default function App() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowSettings(true)}
-              className="p-2 hover:bg-blue-500 rounded-full transition-colors"
+              className="p-2 hover:bg-blue-500 rounded-full transition-colors active:scale-90"
               title="設定"
             >
               <Settings className="w-5 h-5" />
             </button>
             <button
               onClick={() => setShowSidebar(false)}
-              className="md:hidden p-2 hover:bg-blue-500 rounded-full transition-colors"
+              className="lg:hidden p-2 hover:bg-blue-500 rounded-full transition-colors"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -835,10 +840,10 @@ export default function App() {
         {!showSidebar && (
           <button
             onClick={() => setShowSidebar(true)}
-            className="absolute top-4 left-4 z-[1000] bg-white p-3 rounded-xl shadow-lg border border-gray-200 text-blue-600 hover:bg-blue-50 transition-all active:scale-95 flex items-center gap-2 font-bold"
+            className="absolute top-4 left-4 z-[1000] bg-white p-4 rounded-2xl shadow-xl border border-gray-100 text-blue-600 hover:bg-blue-50 transition-all active:scale-95 flex items-center gap-2 font-black ring-4 ring-blue-500/10"
           >
             <Menu className="w-6 h-6" />
-            <span className="md:hidden">控制面板</span>
+            <span className="lg:hidden">控制面板</span>
           </button>
         )}
         <Map
