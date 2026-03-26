@@ -718,7 +718,6 @@ export default function App() {
             {optimizedOrder.length > 0 && (
               <button
                 onClick={() => {
-                  logNavigationClick(optimizedOrder.map(l => l.id));
                   const waypoints = optimizedOrder.slice(0, -1).map(l => `${l.lat},${l.lng}`).join('|');
                   const destination = optimizedOrder[optimizedOrder.length - 1];
                   const url = `https://www.google.com/maps/dir/?api=1&origin=${startPoint?.lat},${startPoint?.lng}&destination=${destination.lat},${destination.lng}${waypoints ? `&waypoints=${waypoints}` : ''}`;
