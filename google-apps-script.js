@@ -17,7 +17,8 @@ function doGet() {
         id: String(row[0]),
         name: String(row[1]),
         lat: Number(row[2]),
-        lng: Number(row[3])
+        lng: Number(row[3]),
+        group: String(row[4] || '')
     }));
 
     return ContentService.createTextOutput(JSON.stringify(lights))
@@ -38,12 +39,12 @@ function doPost(e) {
     if (params.action === 'sync') {
         sheet.clear();
         // 寫入標題
-        sheet.appendRow(['id', 'name', 'lat', 'lng']);
+        sheet.appendRow(['id', 'name', 'lat', 'lng', 'group']);
 
         // 寫入路燈資料
         if (params.lights && params.lights.length > 0) {
             params.lights.forEach(light => {
-                sheet.appendRow([light.id, light.name, light.lat, light.lng]);
+                sheet.appendRow([light.id, light.name, light.lat, light.lng, light.group || '']);
             });
         }
 

@@ -3,6 +3,7 @@ export type Point = {
   lat: number;
   lng: number;
   name: string;
+  group?: string;
   heading?: number;
 };
 

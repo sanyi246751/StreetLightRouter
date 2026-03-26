@@ -176,11 +176,18 @@ export default function Map({ lights, startPoint, selectedLightIds, routeSegment
                 offset={[0, -15]}
                 className={`font-bold ${isSelected ? 'text-red-700' : 'text-blue-700'} bg-white/80 border-none shadow-sm px-1.5 rounded text-[10px]`}
               >
-                {light.name}
+                {light.name}{light.group ? ` (${light.group})` : ''}
               </Tooltip>
             )}
             <Popup>
-              <div className="font-bold break-words">{light.name}</div>
+              <div className="font-bold break-words">
+                {light.name}
+                {light.group && (
+                  <span className="ml-2 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                    {light.group}
+                  </span>
+                )}
+              </div>
               <div className="text-xs text-gray-500">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
               {orderIndex !== -1 && (
                 <div className="text-xs font-bold text-emerald-600 mt-1">第 {orderIndex + 1} 站</div>

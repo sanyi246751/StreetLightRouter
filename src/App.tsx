@@ -8,6 +8,8 @@ export default function App() {
     const saved = localStorage.getItem('streetLights');
     return saved ? JSON.parse(saved) : [];
   });
+  const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [groupInput, setGroupInput] = useState('');
   const [startPoint, setStartPoint] = useState<Point | null>(() => {
     const saved = localStorage.getItem('startPoint');
     return saved ? JSON.parse(saved) : null;
@@ -358,6 +360,19 @@ export default function App() {
     setSelectedLightIds(newSelection);
   };
 
+  const assignGroup = (groupName: string) => {
+    if (selectedLightIds.size === 0) return;
+    setLights(lights.map(l => 
+      selectedLightIds.has(l.id) ? { ...l, group: groupName || undefined } : l
+    ));
+    setGroupInput('');
+  };
+
+  const groups = Array.from(new Set(lights.map(l => l.group).filter(Boolean))) as string[];
+  const filteredLights = filterGroup === 'all' 
+    ? lights 
+    : lights.filter(l => l.group === filterGroup);
+
   const calculateRoute = async () => {
     if (!startPoint) { alert("請先設定出發點"); return; }
     if (selectedLightIds.size === 0) { alert("請選擇至少一個路燈"); return; }
@@ -557,21 +572,76 @@ export default function App() {
               </div>
             )}
 
+            {/* Group Management */}
+            <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <select 
+                  value={filterGroup} 
+                  onChange={(e) => setFilterGroup(e.target.value)}
+                  className="flex-1 text-xs px-2 py-1.5 border rounded bg-white"
+                >
+                  <option value="all">顯示所有群組</option>
+                  {groups.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <div className="text-[10px] text-gray-500 font-medium">
+                  {filteredLights.length} / {lights.length}
+                </div>
+              </div>
+
+              {selectedLightIds.size > 0 && (
+                <div className="flex gap-1 animate-in slide-in-from-top-1">
+                  <input
+                    type="text"
+                    value={groupInput}
+                    onChange={(e) => setGroupInput(e.target.value)}
+                    placeholder="輸入群組名稱..."
+                    className="flex-1 text-xs px-2 py-1.5 border rounded"
+                  />
+                  <button
+                    onClick={() => assignGroup(groupInput)}
+                    className="bg-blue-600 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-blue-700 whitespace-nowrap"
+                  >
+                    分配群組
+                  </button>
+                  {groupInput === '' && (
+                    <button
+                      onClick={() => assignGroup('')}
+                      className="bg-gray-400 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-gray-500 whitespace-nowrap"
+                    >
+                      清除群組
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {lights.length === 0 ? (
+              {filteredLights.length === 0 ? (
                 <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-                  尚未新增任何路燈
+                  {filterGroup === 'all' ? '尚未新增任何路燈' : '此群組無路燈'}
                 </div>
               ) : (
                 <>
                   <div className="flex justify-between items-center px-1 mb-2">
-                    <span className="text-xs text-gray-500">共 {lights.length} 個路燈</span>
+                    <span className="text-xs text-gray-500">
+                      {filterGroup === 'all' ? `共 ${lights.length} 個` : `${filterGroup}: ${filteredLights.length} 個`}
+                    </span>
                     <div className="flex gap-2">
-                      <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">全選</button>
-                      <button onClick={deselectAll} className="text-xs text-gray-500 hover:underline">全不選</button>
+                      <button 
+                        onClick={() => setSelectedLightIds(new Set([...selectedLightIds, ...filteredLights.map(l => l.id)]))} 
+                        className="text-xs text-blue-600 hover:underline"
+                      >全選</button>
+                      <button 
+                        onClick={() => {
+                          const newSelection = new Set(selectedLightIds);
+                          filteredLights.forEach(l => newSelection.delete(l.id));
+                          setSelectedLightIds(newSelection);
+                        }} 
+                        className="text-xs text-gray-500 hover:underline"
+                      >全不選</button>
                     </div>
                   </div>
-                  {lights.map(light => (
+                  {filteredLights.map(light => (
                     <div key={light.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg border border-gray-100 group">
                       <button onClick={() => toggleLightSelection(light.id)} className="text-gray-400 hover:text-blue-600">
                         {selectedLightIds.has(light.id) ? (
@@ -581,7 +651,14 @@ export default function App() {
                         )}
                       </button>
                       <div className="flex-1 min-w-0 py-1">
-                        <div className="font-medium text-sm text-gray-800 break-words">{light.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-sm text-gray-800 truncate">{light.name}</div>
+                          {light.group && (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded-full font-bold">
+                              {light.group}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-500 truncate">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                       </div>
                       <button
@@ -623,30 +700,16 @@ export default function App() {
 
             {optimizedOrder.length > 0 && (
               <button
-                onClick={async () => {
-                  if (mode !== 'navigating') {
-                    await requestOrientationPermission();
-                    setMode('navigating');
-                  } else {
-                    setMode('none');
-                  }
+                onClick={() => {
+                  const waypoints = optimizedOrder.slice(0, -1).map(l => `${l.lat},${l.lng}`).join('|');
+                  const destination = optimizedOrder[optimizedOrder.length - 1];
+                  const url = `https://www.google.com/maps/dir/?api=1&origin=${startPoint?.lat},${startPoint?.lng}&destination=${destination.lat},${destination.lng}${waypoints ? `&waypoints=${waypoints}` : ''}`;
+                  window.open(url, '_blank');
                 }}
-                className={`w-full mt-2 py-3 border-2 font-bold rounded-lg transition-all flex items-center justify-center gap-2
-                  ${mode === 'navigating'
-                    ? 'border-red-500 bg-red-50 text-red-600'
-                    : 'border-blue-600 bg-white text-blue-600 hover:bg-blue-50'}`}
+                className="w-full mt-2 py-3 border-2 font-bold rounded-lg transition-all flex items-center justify-center gap-2 border-blue-600 bg-white text-blue-600 hover:bg-blue-50"
               >
-                {mode === 'navigating' ? (
-                  <>
-                    <X className="w-5 h-5" />
-                    停止導航
-                  </>
-                ) : (
-                  <>
-                    <Navigation className="w-5 h-5 animate-pulse" />
-                    進入導航模式 (GPS)
-                  </>
-                )}
+                <Navigation className="w-5 h-5" />
+                在 Google Maps 中開啟完整路線
               </button>
             )}
           </section>
@@ -675,23 +738,32 @@ export default function App() {
                     >
                       {index + 1}
                     </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                    <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:border-blue-300 transition-colors">
                       <div className="flex justify-between items-start gap-3">
                         <div className="font-bold text-gray-800 flex-1 break-words">{light.name}</div>
                         {light.distanceTo !== undefined && (
                           <div className="shrink-0 flex flex-col items-end gap-1">
-                            <div className="text-[11px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full shadow-sm">
-                              +{light.distanceTo > 1000 ? `${(light.distanceTo / 1000).toFixed(2)}km` : `${Math.round(light.distanceTo)}m`}
-                            </div>
-                            {light.durationTo !== undefined && (
-                              <div className="text-[10px] text-gray-400 font-medium">
-                                車程約 {Math.ceil(light.durationTo / 60)} 分
+                            <div className="flex items-center gap-2">
+                              {light.durationTo !== undefined && (
+                                <span className="text-[10px] text-gray-500 font-medium">
+                                  約 {Math.ceil(light.durationTo / 60)} 分
+                                </span>
+                              )}
+                              <div className="text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full shadow-sm">
+                                +{light.distanceTo > 1000 ? `${(light.distanceTo / 1000).toFixed(2)}km` : `${Math.round(light.distanceTo)}m`}
                               </div>
-                            )}
+                            </div>
+                            <button
+                              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${light.lat},${light.lng}`, '_blank')}
+                              className="mt-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded flex items-center gap-1 shadow-sm transition-colors"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              GMap 導航
+                            </button>
                           </div>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
+                      <div className="text-xs text-gray-400 mt-1">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                     </div>
                   </div>
                 ))}
