@@ -7,7 +7,7 @@ function doGet() {
 
     // 如果表單是空的，回傳空陣列
     if (data.length <= 1) {
-        return ContentService.createTextOutput(JSON.stringify({ lights: [], clickCount: getClickCount() }))
+        return ContentService.createTextOutput(JSON.stringify({ lights: [] }))
             .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -18,22 +18,12 @@ function doGet() {
         name: String(row[1]),
         lat: Number(row[2]),
         lng: Number(row[3]),
-        group: String(row[4] || '')
+        group: String(row[4] || ''),
+        clicks: Number(row[5] || 0)
     }));
 
-    return ContentService.createTextOutput(JSON.stringify({ lights, clickCount: getClickCount() }))
+    return ContentService.createTextOutput(JSON.stringify({ lights }))
         .setMimeType(ContentService.MimeType.JSON);
-}
-
-function getClickCount() {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let statsSheet = ss.getSheetByName('Stats');
-    if (!statsSheet) {
-        statsSheet = ss.insertSheet('Stats');
-        statsSheet.getRange('A1').setValue('Navigation Clicks');
-        statsSheet.getRange('B1').setValue(0);
-    }
-    return statsSheet.getRange('B1').getValue();
 }
 
 function doPost(e) {
@@ -51,12 +41,12 @@ function doPost(e) {
     if (params.action === 'sync') {
         sheet.clear();
         // 寫入標題
-        sheet.appendRow(['id', 'name', 'lat', 'lng', 'group']);
+        sheet.appendRow(['id', 'name', 'lat', 'lng', 'group', 'clicks']);
 
         // 寫入路燈資料
         if (params.lights && params.lights.length > 0) {
             params.lights.forEach(light => {
-                sheet.appendRow([light.id, light.name, light.lat, light.lng, light.group || '']);
+                sheet.appendRow([light.id, light.name, light.lat, light.lng, light.group || '', light.clicks || 0]);
             });
         }
 
@@ -65,16 +55,19 @@ function doPost(e) {
     }
 
     if (params.action === 'log_click') {
-        let statsSheet = ss.getSheetByName('Stats');
-        if (!statsSheet) {
-            statsSheet = ss.insertSheet('Stats');
-            statsSheet.getRange('A1').setValue('Navigation Clicks');
-            statsSheet.getRange('B1').setValue(0);
+        const id = params.id;
+        if (!id) return ContentService.createTextOutput(JSON.stringify({ success: false, error: "ID required" }));
+
+        const data = sheet.getDataRange().getValues();
+        for (let i = 1; i < data.length; i++) {
+            if (String(data[i][0]) === String(id)) {
+                const current = Number(data[i][5] || 0);
+                sheet.getRange(i + 1, 6).setValue(current + 1);
+                return ContentService.createTextOutput(JSON.stringify({ success: true, count: current + 1 }))
+                    .setMimeType(ContentService.MimeType.JSON);
+            }
         }
-        const current = statsSheet.getRange('B1').getValue();
-        statsSheet.getRange('B1').setValue(current + 1);
-        return ContentService.createTextOutput(JSON.stringify({ success: true, count: current + 1 }))
-            .setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Light not found" }));
     }
 
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Unknown action" }))

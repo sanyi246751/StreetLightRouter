@@ -8,7 +8,6 @@ export default function App() {
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [groupInput, setGroupInput] = useState('');
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  const [clickCount, setClickCount] = useState<number>(0);
   const [selectedLightIds, setSelectedLightIds] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<InteractionMode>('none');
   const [heading, setHeading] = useState(0);
@@ -45,7 +44,6 @@ export default function App() {
       const data = await res.json();
       if (data && Array.isArray(data.lights)) {
         setLights(data.lights);
-        setClickCount(data.clickCount || 0);
         setSelectedLightIds(new Set());
         alert(`成功從 Google Sheet 載入 ${data.lights.length} 筆資料！`);
       } else if (Array.isArray(data)) {
@@ -358,15 +356,24 @@ export default function App() {
     setGroupInput('');
   };
 
-  const logNavigationClick = async () => {
+  const logNavigationClick = async (id: string | string[]) => {
     if (!sheetUrl) return;
+    const ids = Array.isArray(id) ? id : [id];
+    
+    // Optimistic UI update
+    setLights(prev => prev.map(l => ids.includes(l.id) ? { ...l, clicks: (l.clicks || 0) + 1 } : l));
+
     try {
-      await fetch(sheetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'log_click' })
-      });
-      setClickCount(prev => prev + 1);
+      // For multiple IDs, we can call consecutively or update GAS to handle array.
+      // Since it's a simple tool, let's just log them one by one or just the first if it's too many.
+      // To keep it clean, let's just log each one.
+      for (const singleId of ids) {
+        await fetch(sheetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'log_click', id: singleId })
+        });
+      }
     } catch (e) {
       console.error("Failed to log click:", e);
     }
@@ -668,6 +675,11 @@ export default function App() {
                               {light.group}
                             </span>
                           )}
+                          {light.clicks && light.clicks > 0 && (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold border border-blue-100">
+                              🏠 {light.clicks}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 truncate">{light.lat.toFixed(5)}, {light.lng.toFixed(5)}</div>
                       </div>
@@ -711,7 +723,7 @@ export default function App() {
             {optimizedOrder.length > 0 && (
               <button
                 onClick={() => {
-                  logNavigationClick();
+                  logNavigationClick(optimizedOrder.map(l => l.id));
                   const waypoints = optimizedOrder.slice(0, -1).map(l => `${l.lat},${l.lng}`).join('|');
                   const destination = optimizedOrder[optimizedOrder.length - 1];
                   const url = `https://www.google.com/maps/dir/?api=1&origin=${startPoint?.lat},${startPoint?.lng}&destination=${destination.lat},${destination.lng}${waypoints ? `&waypoints=${waypoints}` : ''}`;
@@ -738,12 +750,6 @@ export default function App() {
                     <span>總距離: {(routeStats.distance / 1000).toFixed(1)} km</span>
                     <span>•</span>
                     <span>預估時間: {Math.ceil(routeStats.duration / 60)} 分鐘</span>
-                    {clickCount > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="text-blue-600">導航點擊: {clickCount} 次</span>
-                      </>
-                    )}
                   </div>
                 )}
               </div>
@@ -758,7 +764,12 @@ export default function App() {
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm hover:border-blue-300 transition-colors">
                       <div className="flex justify-between items-start gap-3">
-                        <div className="font-bold text-gray-800 flex-1 break-words">{light.name}</div>
+                        <div className="font-bold text-gray-800 flex-1 break-words">
+                        {light.name}
+                        {light.clicks && light.clicks > 0 && (
+                          <span className="ml-2 text-[10px] text-blue-600">({light.clicks}次導航)</span>
+                        )}
+                      </div>
                         {light.distanceTo !== undefined && (
                           <div className="shrink-0 flex flex-col items-end gap-1">
                             <div className="flex items-center gap-2">
@@ -773,7 +784,7 @@ export default function App() {
                             </div>
                             <button
                               onClick={() => {
-                                logNavigationClick();
+                                logNavigationClick(light.id);
                                 window.open(`https://www.google.com/maps/dir/?api=1&destination=${light.lat},${light.lng}`, '_blank');
                               }}
                               className="mt-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded flex items-center gap-1 shadow-sm transition-colors"

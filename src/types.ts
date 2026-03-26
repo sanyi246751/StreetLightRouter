@@ -4,6 +4,7 @@ export type Point = {
   lng: number;
   name: string;
   group?: string;
+  clicks?: number;
   heading?: number;
 };
 
